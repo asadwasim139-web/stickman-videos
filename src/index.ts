@@ -1,11 +1,16 @@
+import React from 'react';
 import { Composition } from 'remotion';
 import { StickmanVideo } from './StickmanVideo';
-import scriptRaw from './data/script.json';
 
-const script = scriptRaw as { scenes: Array<{ seconds: number }> };
+// GitHub Actions se script load hogi — fallback ke liye default
+let script = { scenes: [{ seconds: 6 }] };
+try {
+  script = require('./data/script.json');
+} catch (e) {
+  // default script use karo
+}
 
-// Total duration calculate karo
-const totalSeconds = script.scenes.reduce((sum, s) => sum + (s.seconds || 6), 0);
+const totalSeconds = script.scenes.reduce((sum: number, s: { seconds: number }) => sum + (s.seconds || 6), 0);
 const FPS = 30;
 const totalFrames = totalSeconds * FPS;
 
