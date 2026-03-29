@@ -1,32 +1,110 @@
-import React from 'react';
-import { Composition, registerRoot } from 'remotion';
-import { StickmanVideo } from './StickmanVideo';
+name: 🎬 Render Stickman Video
 
-// GitHub Actions se script load hogi — fallback ke liye default
-let script = { scenes: [{ seconds: 6 }] };
-try {
-  script = require('./data/script.json');
-} catch (e) {
-  // default script use karo
-}
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: 'Request ID from n8n'
+        required: true
+        type: string
+      script_json:
+        description: 'Video script JSON'
+        required: true
+        type: string
+      audio_base64:
+        description: 'Base64 audio from TikTok TTS'
+        required: false
+        type: string
+        default: ''
+      video_title:
+        description: 'Video title'
+        required: true
+        type: string
+      topic:
+        description: 'Video topic'
+        required: false
+        type: string
 
-const totalSeconds = script.scenes.reduce((sum: number, s: { seconds: number }) => sum + (s.seconds || 6), 0);
-const FPS = 30;
-const totalFrames = totalSeconds * FPS;
+jobs:
+  render-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-export const RemotionRoot: React.FC = () => {
-  return (
-    <>
-      <Composition
-        id="StickmanVideo"
-        component={StickmanVideo}
-        durationInFrames={totalFrames}
-        fps={FPS}
-        width={1080}
-        height={1920}
-      />
-    </>
-  );
-};
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-registerRoot(RemotionRoot);
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Chrome dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 \
+            libcups2 libdrm2 libxkbcommon0 libxcomposite1 \
+            libxdamage1 libxfixes3 libxrandr2 libgbm1 \
+            libasound2t64 libpango-1.0-0 libcairo2
+
+      - name: Install npm packages
+        run: npm install
+
+      - name: Install Remotion browser
+        run: npx remotion browser ensure
+
+      - name: Write script data file
+        run: |
+          mkdir -p src/data
+          echo '${{ inputs.script_json }}' > src/data/script.json
+          echo "Script written:"
+          cat src/data/script.json
+
+      - name: Decode & save audio
+        run: |
+          mkdir -p public/audio
+          if [ -n "${{ inputs.audio_base64 }}" ] && [ "${{ inputs.audio_base64 }}" != "" ]; then
+            echo "${{ inputs.audio_base64 }}" | base64 -d > public/audio/narration.mp3
+            echo "Audio file saved: $(du -sh public/audio/narration.mp3)"
+          else
+            echo "No audio provided — video will be silent"
+            touch public/audio/narration.mp3
+          fi
+
+      - name: Render video with Remotion
+        run: |
+          mkdir -p out
+          npx remotion render \
+            src/index.ts \
+            StickmanVideo \
+            out/${{ inputs.request_id }}.mp4 \
+            --codec=h264 \
+            --crf=23 \
+            --fps=30 \
+            --width=1080 \
+            --height=1920 \
+            --log=verbose
+
+      - name: Check output
+        run: |
+          ls -lh out/
+          echo "Video render complete!"
+
+      - name: Upload video as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stickman-${{ inputs.request_id }}
+          path: out/${{ inputs.request_id }}.mp4
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Print download info
+        run: |
+          echo "======================================"
+          echo "Video Title: ${{ inputs.video_title }}"
+          echo "Request ID:  ${{ inputs.request_id }}"
+          echo "Topic:       ${{ inputs.topic }}"
+          echo "Artifact:    stickman-${{ inputs.request_id }}"
+          echo "======================================"
+          echo "GitHub Actions > This Run > Artifacts se download karein"
