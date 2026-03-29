@@ -1,0 +1,14 @@
+{
+  "title": "Test Video",
+  "hook": "Watch this",
+  "scenes": [
+    {
+      "id": 1,
+      "seconds": 6,
+      "action": "stickman standing",
+      "emotion": "happy",
+      "text_overlay": "Hello World!",
+      "narration": "Hello world"
+    }
+  ]
+}
