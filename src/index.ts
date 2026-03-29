@@ -1,5 +1,5 @@
 import React from 'react';
-import { Composition } from 'remotion';
+import { Composition, registerRoot } from 'remotion';
 import { StickmanVideo } from './StickmanVideo';
 
 // GitHub Actions se script load hogi — fallback ke liye default
@@ -28,3 +28,5 @@ export const RemotionRoot: React.FC = () => {
     </>
   );
 };
+
+registerRoot(RemotionRoot);
